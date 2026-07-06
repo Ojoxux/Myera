@@ -1,16 +1,14 @@
-# Ignore all files in the node_modules directory
 node_modules/
-
 dist/
-
 deployment-package.zip
 
-deno.lock
+*.log
+.DS_Store
+coverage/
 
 .env
+.env.*
 
-.env.local
-
-.env.development
-
-.env.production
+.ask/
+skill-package/skill.json
+src/lambda/data/trashSchedules.json

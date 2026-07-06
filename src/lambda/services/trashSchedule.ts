@@ -1,87 +1,145 @@
-import { supabase } from '../db/supabase';
-import { getCurrentDayOfWeek } from '../utils/date';
-import { ScheduleResponse } from '../types';
-import { getCachedSchedule, setCachedSchedule } from './cache';
+import {
+  addDays,
+  getCurrentDayOfWeek,
+  getMonthAndDay,
+  getTimeZone,
+  getWeekNumberOfMonth,
+} from '../utils/date';
+import { DayOfWeek, TrashScheduleData, TrashScheduleRule } from '../types';
 
-export async function getTodayTrashSchedule(
-  timestamp?: string
-): Promise<string> {
-  const startTime = Date.now();
-  console.log('Function getTodayTrashSchedule started');
+const NO_COLLECTION_TEXT = '収集予定のゴミはありません';
+
+function parseScheduleDataFromEnv(): TrashScheduleData | null {
+  const encodedScheduleJson = process.env.TRASH_SCHEDULE_JSON_BASE64;
+  const rawScheduleJson = process.env.TRASH_SCHEDULE_JSON;
+
+  if (!encodedScheduleJson && !rawScheduleJson) {
+    return null;
+  }
 
   try {
-    const date = timestamp ? new Date(timestamp) : new Date();
-    const dayOfWeek = getCurrentDayOfWeek(date);
-    console.log('Current day of week:', dayOfWeek);
+    const jsonText = encodedScheduleJson
+      ? Buffer.from(encodedScheduleJson, 'base64').toString('utf8')
+      : rawScheduleJson || '';
 
-    const weekNumber = Math.ceil(date.getDate() / 7); // 今月の第何週目かを計算
+    return JSON.parse(jsonText) as TrashScheduleData;
+  } catch (error) {
+    console.error('Failed to parse trash schedule data from environment');
+    console.error(error);
+    return null;
+  }
+}
+
+function getScheduleData(): TrashScheduleData {
+  return (
+    parseScheduleDataFromEnv() || {
+      defaultCalendarCode: process.env.TRASH_CALENDAR_CODE || 'default',
+      calendars: {},
+    }
+  );
+}
+
+function getCalendarCode(scheduleData: TrashScheduleData): string {
+  return process.env.TRASH_CALENDAR_CODE || scheduleData.defaultCalendarCode;
+}
+
+function isRuleForDate(
+  rule: TrashScheduleRule,
+  dayOfWeek: DayOfWeek,
+  weekNumber: number,
+  month: number
+): boolean {
+  if (rule.excludeMonths?.includes(month)) {
+    return false;
+  }
+
+  if (!rule.days.includes(dayOfWeek)) {
+    return false;
+  }
+
+  if (rule.type === 'weekly') {
+    return true;
+  }
+
+  return rule.weeks?.includes(weekNumber) === true;
+}
+
+function getSpecialCollectionTypes(month: number, day: number): string[] | null {
+  if (month === 1 && day >= 1 && day <= 3) {
+    return [];
+  }
+
+  if (month === 12 && day === 31) {
+    return ['燃やすごみ'];
+  }
+
+  return null;
+}
+
+export async function getTrashScheduleForDate(
+  date: Date = new Date(),
+  timeZone = getTimeZone()
+): Promise<string> {
+  const startTime = Date.now();
+  console.log('Function getTrashScheduleForDate started');
+
+  try {
+    const dayOfWeek = getCurrentDayOfWeek(date, timeZone);
+    console.log('Target day of week:', dayOfWeek);
+
+    const weekNumber = getWeekNumberOfMonth(date, timeZone);
     console.log('Week number of month:', weekNumber);
 
-    const cacheKey = `${dayOfWeek}-${weekNumber}`;
-    const cachedData = getCachedSchedule(cacheKey);
+    const { month, day } = getMonthAndDay(date, timeZone);
+    const specialCollectionTypes = getSpecialCollectionTypes(month, day);
 
-    if (cachedData) {
-      console.log('Returning cached data');
-      const trashTypes = cachedData
-        .map((schedule) => schedule.trash_types?.name)
-        .filter(Boolean)
-        .join('と');
-
-      const endTime = Date.now();
-      console.log(`Function execution time (cached): ${endTime - startTime}ms`);
-      return trashTypes;
+    if (specialCollectionTypes) {
+      return specialCollectionTypes.length > 0
+        ? specialCollectionTypes.join('と')
+        : NO_COLLECTION_TEXT;
     }
 
-    console.log('Attempting to fetch data from Supabase...');
-    const { data, error } = (await supabase
-      .from('collection_schedules')
-      .select(
-        `
-        trash_types!inner (
-          name
-        ),
-        schedule_type
-      `
-      )
-      .contains('day_of_week', [dayOfWeek])
-      .or(
-        `schedule_type.eq.weekly,and(schedule_type.eq.monthly,week_number.cs.{${weekNumber}})`
-      )
-      // 必要なカラムのみを取得
-      .order('schedule_type')) as {
-      data: ScheduleResponse[] | null;
-      error: any;
-    };
+    const scheduleData = getScheduleData();
+    const calendarCode = getCalendarCode(scheduleData);
+    const calendar = scheduleData.calendars[calendarCode];
 
-    console.log('Supabase response:', JSON.stringify({ data, error }, null, 2));
-
-    if (error) {
-      console.error('Supabase error:', JSON.stringify(error, null, 2));
+    if (!calendar) {
+      console.error(`Trash calendar not found: ${calendarCode}`);
       return '情報の取得に失敗しました';
     }
 
-    // データがないとき(毎月金曜日と日曜日)には、"収集予定のゴミはありません"を返す
-    if (!data || data.length === 0) {
-      return '収集予定のゴミはありません';
+    const trashTypes = calendar.rules
+      .filter((rule) => isRuleForDate(rule, dayOfWeek, weekNumber, month))
+      .map((rule) => rule.name);
+
+    if (trashTypes.length === 0) {
+      return NO_COLLECTION_TEXT;
     }
 
-    setCachedSchedule(cacheKey, data);
-
-    // 複数のゴミ種別がある場合、カンマで区切って列挙
-    const trashTypes = data
-      .map((schedule) => schedule.trash_types?.name)
-      .filter(Boolean)
-      .join('と');
-
-    console.log('Returning result:', trashTypes);
+    const result = trashTypes.join('と');
+    console.log('Returning result:', result);
 
     const endTime = Date.now();
     console.log(`Function execution time: ${endTime - startTime}ms`);
-    return trashTypes;
+    return result;
   } catch (error) {
     const endTime = Date.now();
     console.error(`Error execution time: ${endTime - startTime}ms`);
     console.error('Unexpected error:', JSON.stringify(error, null, 2));
     return 'ゴミ収集情報の取得に失敗しました';
   }
+}
+
+export async function getTodayTrashSchedule(
+  timestamp?: string
+): Promise<string> {
+  const date = timestamp ? new Date(timestamp) : new Date();
+  return getTrashScheduleForDate(date);
+}
+
+export async function getTomorrowTrashSchedule(
+  timestamp?: string
+): Promise<string> {
+  const date = timestamp ? new Date(timestamp) : new Date();
+  return getTrashScheduleForDate(addDays(date, 1));
 }

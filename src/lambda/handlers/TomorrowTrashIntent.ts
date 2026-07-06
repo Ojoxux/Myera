@@ -1,23 +1,25 @@
 import { RequestHandler, HandlerInput } from 'ask-sdk-core';
-import { getTodayTrashSchedule } from '../services/trashSchedule';
+import { addDays } from '../utils/date';
+import { getTomorrowTrashSchedule } from '../services/trashSchedule';
 import { buildTrashSpeechText } from '../services/speech';
 
-export const TodayTrashIntentHandler: RequestHandler = {
+export const TomorrowTrashIntentHandler: RequestHandler = {
   canHandle(handlerInput: HandlerInput) {
     return (
       handlerInput.requestEnvelope.request.type === 'IntentRequest' &&
-      (handlerInput.requestEnvelope.request.intent.name ===
-        'TodayTrashIntent' ||
-        handlerInput.requestEnvelope.request.intent.name ===
-          'AMAZON.FallbackIntent')
+      handlerInput.requestEnvelope.request.intent.name === 'TomorrowTrashIntent'
     );
   },
   async handle(handlerInput: HandlerInput) {
     try {
       const timestamp = handlerInput.requestEnvelope.request.timestamp;
-      const todaySchedule = await getTodayTrashSchedule(timestamp);
-      const today = new Date(timestamp);
-      const speechText = buildTrashSpeechText(today, todaySchedule);
+      const tomorrowSchedule = await getTomorrowTrashSchedule(timestamp);
+      const tomorrow = addDays(new Date(timestamp), 1);
+      const speechText = buildTrashSpeechText(
+        tomorrow,
+        tomorrowSchedule,
+        '明日のゴミ収集予定です'
+      );
 
       return handlerInput.responseBuilder
         .speak(speechText)
@@ -25,7 +27,7 @@ export const TodayTrashIntentHandler: RequestHandler = {
         .getResponse();
     } catch (error) {
       console.error('Error:', error);
-      const errorText = 'すみません、ゴミ収集情報の取得に失敗しました。';
+      const errorText = 'すみません、明日のゴミ収集情報の取得に失敗しました。';
 
       return handlerInput.responseBuilder
         .speak(errorText)
