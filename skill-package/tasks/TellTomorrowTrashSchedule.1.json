@@ -1,0 +1,66 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "明日のゴミ収集予定",
+    "version": "1",
+    "x-amzn-alexa-access-scope": "public",
+    "x-amzn-display-details": {
+      "ja-JP": {
+        "title": "明日のゴミ収集予定",
+        "description": "明日収集されるゴミの種類を音声で案内します。"
+      }
+    }
+  },
+  "paths": {
+    "/TellTomorrowTrashSchedule": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "sampleInput": {
+                  "description": "Empty input",
+                  "value": {}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "When the trash schedule is announced successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessfulResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "When fetching the trash schedule fails"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SuccessfulResponse": {
+        "type": "object",
+        "properties": {
+          "speechText": {
+            "type": "string"
+          },
+          "schedule": {
+            "type": "string"
+          },
+          "targetDate": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "ゴミ情報",
+      "intents": [
+        {
+          "name": "TodayTrashIntent",
+          "slots": [],
+          "samples": [
+            "今日のゴミを教えて",
+            "今日の収集を教えて",
+            "ゴミの日を教えて",
+            "ゴミ情報を教えて"
+          ]
+        },
+        {
+          "name": "TomorrowTrashIntent",
+          "slots": [],
+          "samples": [
+            "明日のゴミを教えて",
+            "明日の収集を教えて",
+            "明日のゴミの日を教えて",
+            "明日のゴミ情報を教えて",
+            "明日のゴミ収集予定を教えて",
+            "明日は何のゴミ",
+            "明日のゴミ出しは何"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

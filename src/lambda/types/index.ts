@@ -1,11 +1,3 @@
-export interface TrashSchedule {
-  id: string;
-  day_of_week: string;
-  trash_type: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export type DayOfWeek =
   | 'sunday'
   | 'monday'
@@ -15,21 +7,23 @@ export type DayOfWeek =
   | 'friday'
   | 'saturday';
 
-export interface TrashType {
+export interface TrashScheduleRule {
   name: string;
-  description: string;
+  type: 'weekly' | 'monthly';
+  days: DayOfWeek[];
+  weeks?: number[];
+  excludeMonths?: number[];
 }
 
-export interface CollectionSchedule {
-  trash_types: TrashType[];
+export interface TrashCalendar {
+  code: string;
+  area: string;
+  collectionTime: string;
+  sourceUrl: string;
+  rules: TrashScheduleRule[];
 }
 
-export interface ScheduleResponse {
-  trash_types: {
-    name: string;
-    description: string;
-  };
-  day_of_week: string[];
-  week_number: number[] | null;
-  schedule_type: 'weekly' | 'monthly';
+export interface TrashScheduleData {
+  defaultCalendarCode: string;
+  calendars: Record<string, TrashCalendar>;
 }

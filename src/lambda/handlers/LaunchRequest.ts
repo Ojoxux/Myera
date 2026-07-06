@@ -1,27 +1,20 @@
 import { RequestHandler, HandlerInput } from 'ask-sdk-core';
 import { getTodayTrashSchedule } from '../services/trashSchedule';
+import { buildTrashSpeechText } from '../services/speech';
 
 export const LaunchRequestHandler: RequestHandler = {
   canHandle(handlerInput: HandlerInput) {
-    return handlerInput.requestEnvelope.request.type === 'LaunchRequest';
+    return (
+      handlerInput.requestEnvelope.request.type === 'LaunchRequest' &&
+      !handlerInput.requestEnvelope.request.task
+    );
   },
   async handle(handlerInput: HandlerInput) {
     try {
       const timestamp = handlerInput.requestEnvelope.request.timestamp;
       const todaySchedule = await getTodayTrashSchedule(timestamp);
       const today = new Date(timestamp);
-      const dateStr = today.toLocaleDateString('ja-JP', {
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long',
-      });
-
-      let speechText;
-      if (!todaySchedule || todaySchedule === '情報の取得に失敗しました') {
-        speechText = `${dateStr}は収集予定がありません。`;
-      } else {
-        speechText = `${dateStr}の収集は${todaySchedule}です。午前8時までに出してください。`;
-      }
+      const speechText = buildTrashSpeechText(today, todaySchedule);
 
       return handlerInput.responseBuilder
         .speak(speechText)
